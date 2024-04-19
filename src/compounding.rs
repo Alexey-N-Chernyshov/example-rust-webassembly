@@ -1,4 +1,7 @@
-use sp_arithmetic::traits::{EnsureAdd, EnsureMul, Saturating};
+use sp_arithmetic::traits::One;
+use sp_arithmetic::traits::{
+    CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, EnsureAdd, EnsureMul, Saturating,
+};
 use sp_arithmetic::{ArithmeticError, FixedU128};
 
 pub type Balance = u128;
@@ -14,13 +17,13 @@ pub type Balance = u128;
 /// Returns (A) - the new balance with interest over time
 pub fn compound(
     principal: Balance,
-    rate_per_second: FixedU128,
+    rate_per_second: &FixedU128,
     period: u64,
 ) -> Result<Balance, ArithmeticError> {
     let res = FixedU128::from_inner(principal)
         .ensure_mul(
             FixedU128::from(1)
-                .ensure_add(rate_per_second)?
+                .ensure_add(*rate_per_second)?
                 .saturating_pow(period as usize),
         )?
         .into_inner();
@@ -31,6 +34,51 @@ pub fn compound(
     }
 }
 
+pub fn calculate_collateral_interest_coefficient(
+    last_fee_update_time: u64,
+    now: u64,
+    collateral_interest_coefficient: &FixedU128,
+    stability_fee_rate: &FixedU128,
+) -> Result<Balance, ArithmeticError> {
+    let time_passed = now
+        .checked_sub(last_fee_update_time)
+        .ok_or(ArithmeticError::Underflow)?;
+    compound(
+        collateral_interest_coefficient.into_inner(),
+        stability_fee_rate,
+        time_passed,
+    )
+}
+
+pub fn calculate_new_debt(
+    last_fee_update_time: u64,
+    now: u64,
+    collateral_interest_coefficient: &FixedU128,
+    cdp_interest_coefficient: &FixedU128,
+    stability_fee_rate: &FixedU128,
+    cdp_debt: Balance,
+) -> Result<Balance, ArithmeticError> {
+    let new_collateral_interest_coefficient = FixedU128::from_inner(calculate_collateral_interest_coefficient(
+        last_fee_update_time,
+        now,
+        collateral_interest_coefficient,
+        stability_fee_rate,
+    )?);
+    let interest_percent = new_collateral_interest_coefficient
+        .checked_sub(cdp_interest_coefficient)
+        .ok_or(ArithmeticError::Underflow)?
+        .checked_div(cdp_interest_coefficient)
+        .ok_or(ArithmeticError::DivisionByZero)?;
+    Ok(FixedU128::from_inner(cdp_debt)
+        .checked_mul(
+            &interest_percent
+                .checked_add(&FixedU128::one())
+                .ok_or(ArithmeticError::Overflow)?,
+        )
+        .ok_or(ArithmeticError::Underflow)?
+        .into_inner())
+}
+
 #[test]
 fn tests_compound_zero_rate() {
     let initial_balance = 10000000000000000000000;
@@ -39,7 +87,7 @@ fn tests_compound_zero_rate() {
     let time = 31556952000;
     // balance shall not change
     assert_eq!(
-        compound(initial_balance, rate, time).unwrap(),
+        compound(initial_balance, &rate, time).unwrap(),
         initial_balance
     );
 }
@@ -52,7 +100,7 @@ fn test_compound_zero_principal() {
     let time = 31556952000;
     // shall not change
     assert_eq!(
-        compound(initial_balance, rate, time).unwrap(),
+        compound(initial_balance, &rate, time).unwrap(),
         initial_balance
     );
 }
@@ -65,7 +113,7 @@ fn test_compound_0_period() {
     // 1 second
     let time = 0;
     assert_eq!(
-        compound(initial_balance, rate, time).unwrap(),
+        compound(initial_balance, &rate, time).unwrap(),
         1000000000000000000000
     );
 }
@@ -78,7 +126,7 @@ fn test_compound_1_period() {
     // 1 second
     let time = 1;
     assert_eq!(
-        compound(initial_balance, rate, time).unwrap(),
+        compound(initial_balance, &rate, time).unwrap(),
         1150000000000000000000
     );
 }
@@ -91,7 +139,7 @@ fn test_compound_2_periods() {
     // 1 second
     let time = 2;
     assert_eq!(
-        compound(initial_balance, rate, time).unwrap(),
+        compound(initial_balance, &rate, time).unwrap(),
         1210000000000000000
     );
 }
@@ -104,7 +152,7 @@ fn test_compound_overflow() {
     // 1 second
     let time = 1;
     assert_eq!(
-        compound(initial_balance, rate, time),
+        compound(initial_balance, &rate, time),
         Err(ArithmeticError::Overflow)
     );
 }
