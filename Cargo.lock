@@ -126,7 +126,6 @@ dependencies = [
 name = "kensetsu-bindings"
 version = "0.0.1"
 dependencies = [
- "console_error_panic_hook",
  "sp-arithmetic",
  "wasm-bindgen",
  "wasm-bindgen-test",

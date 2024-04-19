@@ -12,11 +12,6 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# The `console_error_panic_hook` crate provides better debugging of panics by
-# logging them with `console.error`. This is great for development, but requires
-# all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
-# code size when deploying.
-console_error_panic_hook = { version = "0.1.7", optional = true }
 sp-arithmetic = { git = "https://github.com/sora-xor/substrate.git", branch = "polkadot-v0.9.38", default-features = false }
 wasm-bindgen = "0.2"
 
@@ -24,12 +19,12 @@ wasm-bindgen = "0.2"
 wasm-bindgen-test = "0.3.34"
 
 [features]
-default = ["std", "console_error_panic_hook"]
+default = ["std"]
 std = [
     "sp-arithmetic/std",
 ]
 
 [profile.release]
+strip = true
 lto = true
-# Tell `rustc` to optimize for small code size.
 opt-level = "s"
