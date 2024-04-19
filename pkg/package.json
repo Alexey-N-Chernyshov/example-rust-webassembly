@@ -1,0 +1,23 @@
+{
+  "name": "kensetsu-bindings",
+  "description": "Kensetsu JS bindnings",
+  "version": "0.0.1",
+  "license": "BSD-4-Clause",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Alexey-N-Chernyshov/example-rust-webassembly"
+  },
+  "files": [
+    "kensetsu_bindings_bg.wasm",
+    "kensetsu_bindings.js",
+    "kensetsu_bindings_bg.js",
+    "kensetsu_bindings.d.ts"
+  ],
+  "module": "kensetsu_bindings.js",
+  "homepage": "https://sora.org",
+  "types": "kensetsu_bindings.d.ts",
+  "sideEffects": [
+    "./kensetsu_bindings.js",
+    "./snippets/*"
+  ]
+}
